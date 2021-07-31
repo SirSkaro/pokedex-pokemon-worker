@@ -2,10 +2,12 @@ package skaro.pokedex.worker.pokemon.stat;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import org.apache.commons.lang3.StringUtils;
 
 import discord4j.discordjson.json.EmbedData;
+import discord4j.discordjson.json.EmbedImageData;
 import discord4j.discordjson.json.EmbedThumbnailData;
 import discord4j.discordjson.json.MessageCreateRequest;
 import discord4j.discordjson.possible.Possible;
@@ -21,7 +23,8 @@ import skaro.pokedex.sdk.discord.MessageBuilder;
 
 public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 	private static final String PADDING = " ";
-	private static final int PADDING_OFFSET = 20;
+	private static final String BAR_UNIT_CHARACTER = "█";
+	private static final int MAX_BAR_LENGTH = 24;
 	private static final String MONOSPACE_FONT_MODIFIER_START = "`";
 	private static final String MONOSPACE_FONT_MODIFIER_END = "`";
 	private static final String UNDERLINE_FONT_MODIFIER_START = "__";
@@ -55,9 +58,12 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 	
 	private String formatPokemonStats(StatMessageContent messageContent) {
 		StringBuilder builder = new StringBuilder();
-		builder.append(createRow("hp", "attack", messageContent));
-		builder.append(createRow("defense", "special-attack", messageContent));
-		builder.append(createRow("special-defense", "speed", messageContent));
+		builder.append(createRow("hp", messageContent));
+		builder.append(createRow("attack", messageContent));
+		builder.append(createRow("defense", messageContent));
+		builder.append(createRow("special-attack", messageContent));
+		builder.append(createRow("special-defense", messageContent));
+		builder.append(createRow("speed", messageContent));
 		
 		return builder.toString();
 	}
@@ -69,37 +75,36 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 				.orElse(Possible.absent());
 	}
 	
-	private StringBuilder createRow(String stat1, String stat2, StatMessageContent messageContent) {
+	private StringBuilder createRow(String stat, StatMessageContent messageContent) {
 		Language language = messageContent.getLanguage();
 		Pokemon pokemon = messageContent.getPokemon();
 		Map<String, Stat> stats = messageContent.getStats();
 		
 		StringBuilder builder = new StringBuilder();
-		builder.append(createRowHeader(stat1, stat2, stats, language));
+		builder.append(createRowHeader(stat, stats, language));
 		builder.append(System.lineSeparator());
-		builder.append(createRowContent(stat1, stat2, pokemon));
-		builder.append(System.lineSeparator());
+		builder.append(createRowContent(stat, pokemon));
 		builder.append(System.lineSeparator());
 		return builder;
 	}
 	
-	private StringBuilder createRowHeader(String stat1, String stat2, Map<String, Stat> stats, Language language) {
+	private StringBuilder createRowHeader(String statName, Map<String, Stat> stats, Language language) {
 		StringBuilder builder = new StringBuilder();
 		builder.append(UNDERLINE_FONT_MODIFIER_START);
-		builder.append(MONOSPACE_FONT_MODIFIER_START);
-		builder.append(StringUtils.rightPad(getStatInLanguage(stats.get(stat1), language), PADDING_OFFSET, PADDING));
-		builder.append(getStatInLanguage(stats.get(stat2), language));
-		builder.append(MONOSPACE_FONT_MODIFIER_END);
+		builder.append(getStatInLanguage(stats.get(statName), language));
 		builder.append(UNDERLINE_FONT_MODIFIER_END);
 		
 		return builder;
 	}
 	
-	private StringBuilder createRowContent(String stat1, String stat2, Pokemon pokemon) {
+	private StringBuilder createRowContent(String statName, Pokemon pokemon) {
+		int baseStatValue = getPokemonStat(statName, pokemon);
+		
 		StringBuilder builder = new StringBuilder();
 		builder.append(MONOSPACE_FONT_MODIFIER_START);
-		builder.append(StringUtils.rightPad(getPokemonStat(stat1, pokemon), PADDING_OFFSET, PADDING));
-		builder.append(getPokemonStat(stat2, pokemon));
+		builder.append("╠");
+		builder.append(StringUtils.rightPad(createStatBar(baseStatValue), MAX_BAR_LENGTH, PADDING));
+		builder.append("╣");
 		builder.append(MONOSPACE_FONT_MODIFIER_END);
 		
 		return builder;
@@ -112,13 +117,21 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 				.orElse(StringUtils.EMPTY);
 	}
 	
-	private String getPokemonStat(String statName, Pokemon pokemon) {
+	private int getPokemonStat(String statName, Pokemon pokemon) {
 		return pokemon.getStats().stream()
 				.filter(stat -> StringUtils.equals(statName, stat.getStat().getName()))
 				.map(PokemonStat::getBaseStat)
-				.map(stat -> Integer.toString(stat))
 				.findFirst()
-				.orElse("0");
+				.orElse(0);
+	}
+	
+	private String createStatBar(int baseStat) {
+		StringBuilder builder = new StringBuilder();
+		int barLength = (int)(MAX_BAR_LENGTH * ((double)baseStat / 255.0));
+		IntStream.range(0, barLength)
+			.forEach(barUnit -> builder.append(BAR_UNIT_CHARACTER));
+			
+		return builder.toString();
 	}
 	
 }
