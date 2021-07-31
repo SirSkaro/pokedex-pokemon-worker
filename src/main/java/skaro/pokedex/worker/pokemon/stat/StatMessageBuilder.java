@@ -7,7 +7,6 @@ import java.util.stream.IntStream;
 import org.apache.commons.lang3.StringUtils;
 
 import discord4j.discordjson.json.EmbedData;
-import discord4j.discordjson.json.EmbedImageData;
 import discord4j.discordjson.json.EmbedThumbnailData;
 import discord4j.discordjson.json.MessageCreateRequest;
 import discord4j.discordjson.possible.Possible;
@@ -23,12 +22,15 @@ import skaro.pokedex.sdk.discord.MessageBuilder;
 
 public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 	private static final String PADDING = " ";
+	private static final String BAR_BORDER_START_CHARACTER = "╠";
 	private static final String BAR_UNIT_CHARACTER = "█";
+	private static final String BAR_BORDER_END_CHARACTER = "╣";
 	private static final int MAX_BAR_LENGTH = 24;
 	private static final String MONOSPACE_FONT_MODIFIER_START = "`";
 	private static final String MONOSPACE_FONT_MODIFIER_END = "`";
 	private static final String UNDERLINE_FONT_MODIFIER_START = "__";
 	private static final String UNDERLINE_FONT_MODIFIER_END = "__";
+	private static final double MAX_BASE_STATE = 255.0;
 	
 	public StatMessageBuilder() {
 	
@@ -76,22 +78,25 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 	}
 	
 	private StringBuilder createRow(String stat, StatMessageContent messageContent) {
-		Language language = messageContent.getLanguage();
 		Pokemon pokemon = messageContent.getPokemon();
-		Map<String, Stat> stats = messageContent.getStats();
 		
 		StringBuilder builder = new StringBuilder();
-		builder.append(createRowHeader(stat, stats, language));
+		builder.append(createRowHeader(stat, messageContent));
 		builder.append(System.lineSeparator());
 		builder.append(createRowContent(stat, pokemon));
 		builder.append(System.lineSeparator());
 		return builder;
 	}
 	
-	private StringBuilder createRowHeader(String statName, Map<String, Stat> stats, Language language) {
+	private StringBuilder createRowHeader(String statName, StatMessageContent messageContent) {
+		Language language = messageContent.getLanguage();
+		int baseStatValue = getPokemonStat(statName, messageContent.getPokemon());
+		Map<String, Stat> stats = messageContent.getStats();
+		
 		StringBuilder builder = new StringBuilder();
 		builder.append(UNDERLINE_FONT_MODIFIER_START);
 		builder.append(getStatInLanguage(stats.get(statName), language));
+		builder.append(String.format(" - %d", baseStatValue));
 		builder.append(UNDERLINE_FONT_MODIFIER_END);
 		
 		return builder;
@@ -102,9 +107,9 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 		
 		StringBuilder builder = new StringBuilder();
 		builder.append(MONOSPACE_FONT_MODIFIER_START);
-		builder.append("╠");
+		builder.append(BAR_BORDER_START_CHARACTER);
 		builder.append(StringUtils.rightPad(createStatBar(baseStatValue), MAX_BAR_LENGTH, PADDING));
-		builder.append("╣");
+		builder.append(BAR_BORDER_END_CHARACTER);
 		builder.append(MONOSPACE_FONT_MODIFIER_END);
 		
 		return builder;
@@ -127,7 +132,7 @@ public class StatMessageBuilder implements MessageBuilder<StatMessageContent> {
 	
 	private String createStatBar(int baseStat) {
 		StringBuilder builder = new StringBuilder();
-		int barLength = (int)(MAX_BAR_LENGTH * ((double)baseStat / 255.0));
+		int barLength = (int)(MAX_BAR_LENGTH * ((double)baseStat / MAX_BASE_STATE));
 		IntStream.range(0, barLength)
 			.forEach(barUnit -> builder.append(BAR_UNIT_CHARACTER));
 			
